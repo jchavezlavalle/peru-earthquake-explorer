@@ -150,7 +150,7 @@ By combining modern web technologies and AWS serverless infrastructure, Peru Ear
 
 ## 👥 Contributors
 
-Developed as part of a hackathon project.
+Developed as part of the Weekend Challenge "Map it".
 
 ---
 
