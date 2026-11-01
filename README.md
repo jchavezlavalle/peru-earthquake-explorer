@@ -1,5 +1,5 @@
 
-# 🇵🇪 Peru Earthquake Monitor
+# 🇵🇪 Peru Seismic Monitor
 
 A web application designed to monitor and visualize the latest earthquakes in Peru, providing users with accessible and up-to-date seismic information through an intuitive interface.
 
