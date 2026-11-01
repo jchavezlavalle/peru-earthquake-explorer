@@ -48,28 +48,170 @@ AWS Identity and Access Management (IAM) was used to configure access permission
 These configurations help maintain a secure and controlled cloud environment while allowing the application components to communicate properly.
 
 
+## 🌎 Data Collection and Processing
+
+One of the core components of Peru Earthquake Monitor is its automated earthquake data collection pipeline.
+
+The application retrieves seismic event information from the **United States Geological Survey (USGS) Earthquake Catalog API**, using its FDSN Event Web Service.
+
+### 📡 Data Source
+
+The project uses the USGS Earthquake Catalog API:
+
+https://earthquake.usgs.gov/fdsnws/event/1/query
+
+This API provides earthquake information in GeoJSON format, allowing the application to retrieve structured seismic event data, including geographical coordinates, magnitude, depth, and event timestamps.
+
+### 🔎 Geographic and Temporal Filtering
+
+To focus specifically on seismic activity in Peru, the backend applies geographical boundaries to the API request.
+
+The configured geographic bounding box is:
+
+| Parameter | Value |
+|---|---|
+| Minimum Latitude | -18.5° |
+| Maximum Latitude | 0.5° |
+| Minimum Longitude | -81.5° |
+| Maximum Longitude | -68.0° |
+
+Additional filtering parameters include:
+
+- **Time range:** Earthquakes recorded during the previous 365 days.
+- **Minimum magnitude:** 2.5.
+- **Maximum results:** 20,000 events.
+- **Ordering:** Most recent earthquakes first.
+
+This filtering allows the application to retrieve seismic events within the selected geographical area and time range.
+
+### 🔄 Data Processing Pipeline
+
+The Python backend, deployed through AWS Lambda, performs the following operations:
+
+1. **API Request:** Sends an HTTP request to the USGS Earthquake Catalog API with the configured geographic, temporal, and magnitude filters.
+2. **Data Retrieval:** Receives earthquake information in GeoJSON format.
+3. **Response Validation:** Checks the HTTP response to ensure the request was successful.
+4. **Data Serialization:** Converts the retrieved GeoJSON data into JSON for storage.
+5. **Cloud Storage:** Uploads the resulting dataset to Amazon S3 using the `boto3` AWS SDK.
+6. **Data Availability:** Makes the updated dataset available for the application to retrieve and visualize.
+
+### 🗺️ GeoJSON Data Format
+
+The application uses **GeoJSON**, a standard format for representing geographical data structures.
+
+Each earthquake is represented as a geographic feature containing properties and a geometry object.
+
+The geometry includes coordinates representing:
+
+- Longitude
+- Latitude
+- Depth (in kilometers)
+
+The associated properties provide additional seismic information, such as magnitude, event time, location description, and other metadata supplied by USGS.
+
+Using GeoJSON makes it possible to integrate earthquake records with geographical visualization tools and interactive maps.
+
+### ☁️ Data Storage
+
+After retrieval and processing, the complete GeoJSON dataset is stored in Amazon S3.
+
+The configured storage location is:
+
+```text
+s3://peru-seismic-monitor-unique-suffix/
+└── data/
+    └── earthquakes-peru.geojson
+```
+
+Amazon S3 serves as the centralized storage location for the collected earthquake dataset.
+
+This approach separates data collection from data visualization, allowing the frontend to consume the stored geographical information independently of the Python processing logic.
+
+
+## ⏰ Automated Data Updates
+
+To ensure that the earthquake dataset remains updated, the project uses **Amazon EventBridge** to automate the execution of the AWS Lambda function.
+
+EventBridge is configured with an hourly schedule, triggering the Python Lambda function once every hour.
+
+### Update Workflow
+
+1. **Scheduled Trigger:** Amazon EventBridge activates the Lambda function every hour.
+2. **Data Collection:** Lambda requests the latest available earthquake records from the USGS API.
+3. **Data Processing:** The response is validated and serialized into GeoJSON.
+4. **Dataset Replacement:** The updated dataset is uploaded to Amazon S3, replacing the previous version of the GeoJSON file.
+5. **Updated Data Availability:** The latest stored dataset becomes available for the frontend to retrieve.
+
+This automated process reduces the need for manual data collection and helps keep the application's earthquake information current.
+
+**Note:** The hourly schedule means the application checks for updated data every hour; it does not guarantee that USGS publishes new earthquake records exactly at that frequency.
+
+
+### 🔁 Continuous Data Synchronization
+
+The application implements an automated data synchronization pipeline using Amazon EventBridge, AWS Lambda, and Amazon S3.
+
+Amazon EventBridge is configured with an hourly schedule that triggers the Python Lambda function automatically.
+
+Every execution performs the following operations:
+
+1. Retrieves the latest available earthquake records from the USGS Earthquake Catalog API.
+2. Applies geographical, temporal, and magnitude filters to focus on seismic activity in Peru.
+3. Processes the API response and maintains the data in GeoJSON format.
+4. Uploads the updated dataset to Amazon S3, replacing the previously stored file.
+
+The dataset is maintained at:
+
+`data/earthquakes-peru.geojson`
+
+This approach ensures that the application always has a periodically refreshed dataset available for geographical visualization.
+
+By separating data ingestion and storage from the frontend, the application creates an independent and automated data pipeline that can be extended or integrated with additional visualization tools in the future.
+
+
 ### Architecture Overview
 
 ```text
-                 USERS
-                   |
-                   v
-             CLOUDFRONT
-                   |
-                   v
-             AMAZON S3
-           (React Frontend)
-                   |
-                   | API Requests
-                   v
-             BACKEND API
-                   |
-                   v
-              AWS LAMBDA
-                (Python)
-                   |
-                   v
-          EARTHQUAKE DATA SOURCE
+                    USERS
+                      |
+                      v
+                 CLOUDFRONT
+                      |
+                      v
+              AMAZON S3 BUCKET
+               (React Frontend)
+                      |
+                      | Reads GeoJSON
+                      v
+              AMAZON S3 BUCKET
+             (Earthquake Dataset)
+             earthquakes-peru.geojson
+
+
+       AUTOMATED DATA COLLECTION PIPELINE
+       ===================================
+
+               AMAZON EVENTBRIDGE
+                  (Every Hour)
+                      |
+                      v
+                 AWS LAMBDA
+                   (Python)
+                      |
+                      | HTTP Request
+                      v
+             USGS EARTHQUAKE API
+                      |
+                      | GeoJSON Response
+                      v
+                 AWS LAMBDA
+             (Process and Serialize)
+                      |
+                      | Upload / Overwrite
+                      v
+              AMAZON S3 BUCKET
+             (Earthquake Dataset)
+             earthquakes-peru.geojson
 ```
 
 ## 🛠️ Technologies Used
